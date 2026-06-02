@@ -113,7 +113,7 @@ export function FloatingChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 280, damping: 26 }}
-            className="fixed z-50 glass-strong border border-border/60 shadow-glow-lg
+            className="fixed z-50 bg-background/95 backdrop-blur-xl border border-border/60 shadow-glow-lg
               bottom-0 right-0 left-0 top-0
               sm:bottom-6 sm:right-6 sm:left-auto sm:top-auto
               sm:h-[640px] sm:max-h-[85vh] sm:w-[420px]
