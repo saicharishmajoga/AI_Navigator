@@ -1,4 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_BASE = 
+  (typeof window !== "undefined" ? (window as any).__API_BASE__ : undefined) ??
+  import.meta.env.VITE_API_BASE ?? 
+  import.meta.env.VITE_API_URL ?? 
+  "http://localhost:8000";
 
 async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

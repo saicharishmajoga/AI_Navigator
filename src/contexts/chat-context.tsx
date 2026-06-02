@@ -10,7 +10,11 @@ import {
 import { LS_KEYS, readLS, writeLS } from "@/lib/storage";
 import { useApp } from "./app-context";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_BASE = 
+  (typeof window !== "undefined" ? (window as any).__API_BASE__ : undefined) ??
+  import.meta.env.VITE_API_BASE ?? 
+  import.meta.env.VITE_API_URL ?? 
+  "http://localhost:8000";
 
 export interface ChatMessage {
   id: string;
