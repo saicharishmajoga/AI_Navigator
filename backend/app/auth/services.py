@@ -186,24 +186,21 @@ class AuthService:
         if not user:
             # Auto-create the user if the email is pre-approved
             if AuthService.is_email_allowed(email):
-                code = str(random.randint(100000, 999999))
                 user = User(
                     name=email.split("@")[0].capitalize(),
                     email=email.lower(),
                     hashed_password=hash_password(password),
                     role="client",
                     is_verified=True,
-                    otp_code=code,
-                    otp_expires_at=datetime.utcnow() + timedelta(minutes=5),
-                    otp_purpose="login",
+                    otp_code=None,
+                    otp_expires_at=None,
+                    otp_purpose=None,
                     login_attempts=0
                 )
                 db.add(user)
                 await db.commit()
                 await db.refresh(user)
-                
-                AuthService.send_otp_email(user.email, user.name, code, "login")
-                return {"status": "otp_required", "email": user.email, "otp_code": code}
+                return user
             else:
                 raise UnauthorizedException(detail="Invalid email or password")
         
@@ -214,21 +211,16 @@ class AuthService:
             await AuthService.record_failed_attempt(db, user)
             raise UnauthorizedException(detail="Invalid email or password")
 
-        # Successful credential check - generate login OTP
+        # Successful credential check - immediately reset rate limits and return user
         await AuthService.reset_rate_limit(db, user)
         
-        code = str(random.randint(100000, 999999))
-        user.otp_code = code
-        user.otp_expires_at = datetime.utcnow() + timedelta(minutes=5)
-        user.otp_purpose = "login" if user.is_verified else "register"
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        if not user.is_verified:
+            user.is_verified = True
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
 
-        AuthService.send_otp_email(user.email, user.name, code, user.otp_purpose)
-
-        # Temporarily block login and signal that OTP is required with code
-        return {"status": "otp_required", "email": user.email, "otp_code": code}
+        return user
 
     @staticmethod
     async def register_user(db: AsyncSession, payload: UserCreate) -> User:
