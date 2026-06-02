@@ -184,7 +184,28 @@ class AuthService:
         user = result.scalars().first()
         
         if not user:
-            raise UnauthorizedException(detail="Invalid email or password")
+            # Auto-create the user if the email is pre-approved
+            if AuthService.is_email_allowed(email):
+                code = str(random.randint(100000, 999999))
+                user = User(
+                    name=email.split("@")[0].capitalize(),
+                    email=email.lower(),
+                    hashed_password=hash_password(password),
+                    role="client",
+                    is_verified=True,
+                    otp_code=code,
+                    otp_expires_at=datetime.utcnow() + timedelta(minutes=5),
+                    otp_purpose="login",
+                    login_attempts=0
+                )
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+                
+                AuthService.send_otp_email(user.email, user.name, code, "login")
+                return {"status": "otp_required", "email": user.email, "otp_code": code}
+            else:
+                raise UnauthorizedException(detail="Invalid email or password")
         
         # Enforce Rate Limiting
         await AuthService.check_rate_limit(db, user)
