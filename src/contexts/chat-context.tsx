@@ -161,16 +161,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setActiveThreadId(userThreads[0]?.id ?? null);
       }
     } else {
-      // Ephemeral / Guest threads load
-      setThreads(guestThreads);
-      setActiveThreadId(guestThreads[0]?.id ?? null);
+      // Ephemeral / Guest threads load: Always start with an empty thread array for non-logged-in users!
+      // This guarantees that reloading the page clears the guest chat completely.
+      writeLS(guestKey, []);
+      setThreads([]);
+      setActiveThreadId(null);
     }
   }, [user]);
 
   // Persist threads dynamically based on current user session
   useEffect(() => {
-    const key = user ? `${LS_KEYS.threads}.${user.id}` : `${LS_KEYS.threads}.guest`;
-    writeLS(key, threads);
+    if (user) {
+      const key = `${LS_KEYS.threads}.${user.id}`;
+      writeLS(key, threads);
+    } else {
+      // Save guest threads ephemeral state in case they authenticate during this active session
+      const key = `${LS_KEYS.threads}.guest`;
+      writeLS(key, threads);
+    }
   }, [threads, user]);
 
   const activeThread = useMemo(
