@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(..., env="JWT_SECRET")
     JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=120, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    GROQ_API_KEY: str = Field(..., env="GROQ_API_KEY")
+    GROQ_API_KEY: str | None = Field(default=None, env="GROQ_API_KEY")
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", env="EMBEDDING_MODEL")
     CHROMA_DB_DIR: str = Field(default="./chroma_db", env="CHROMA_DB_DIR")
     UPLOAD_DIRECTORY: str = Field(default="./uploads", env="UPLOAD_DIRECTORY")

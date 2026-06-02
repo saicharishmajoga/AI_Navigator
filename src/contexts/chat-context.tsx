@@ -10,11 +10,23 @@ import {
 import { LS_KEYS, readLS, writeLS } from "@/lib/storage";
 import { useApp } from "./app-context";
 
-const API_BASE = 
-  (typeof window !== "undefined" ? (window as any).__API_BASE__ : undefined) ??
-  import.meta.env.VITE_API_BASE ?? 
-  import.meta.env.VITE_API_URL ?? 
-  "http://localhost:8000";
+const getApiBase = () => {
+  if (typeof window !== "undefined") {
+    // If the browser is accessing the website on Render, automatically route to the production backend!
+    if (window.location.hostname.includes("onrender.com")) {
+      return "https://ai-navigator-rija.onrender.com";
+    }
+    // If there is an injected API base on window, try using it if it's not localhost
+    if ((window as any).__API_BASE__ && !(window as any).__API_BASE__.includes("localhost")) {
+      return (window as any).__API_BASE__;
+    }
+  }
+  return import.meta.env.VITE_API_BASE ?? 
+         import.meta.env.VITE_API_URL ?? 
+         "http://localhost:8000";
+};
+
+const API_BASE = getApiBase();
 
 export interface ChatMessage {
   id: string;

@@ -87,7 +87,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
-  const apiBase = typeof process !== "undefined" ? (process.env.VITE_API_BASE ?? process.env.VITE_API_URL ?? "http://localhost:8000") : "http://localhost:8000";
+  const apiBase = typeof process !== "undefined" 
+    ? (process.env.VITE_API_BASE ?? process.env.VITE_API_URL ?? (process.env.NODE_ENV === "production" ? "https://ai-navigator-rija.onrender.com" : "http://localhost:8000")) 
+    : "http://localhost:8000";
   return (
     <html lang="en">
       <head>

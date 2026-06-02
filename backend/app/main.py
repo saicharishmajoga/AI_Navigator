@@ -21,6 +21,20 @@ app.add_exception_handler(Exception, generic_exception_handler)
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    # Check if database is empty and seed it
+    try:
+        from .database.seed import seed_database_on_startup
+        from .models.tool import Tool
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as session:
+            stmt = select(Tool)
+            res = await session.execute(stmt)
+            all_tools = res.scalars().all()
+            if not all_tools:
+                await seed_database_on_startup(session)
+    except Exception as e:
+        print(f"Error checking or seeding database on startup: {e}")
 
 
 @app.get("/", summary="Health check")
