@@ -64,5 +64,8 @@ export default defineConfig({
         host: "localhost",
       },
     },
+    preview: {
+      allowedHosts: true,
+    },
   },
 });
