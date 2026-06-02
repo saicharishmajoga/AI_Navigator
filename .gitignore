@@ -1,0 +1,31 @@
+# Node
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
+
+# Python
+backend/.venv
+backend/venv
+__pycache__/
+*.pyc
+backend/.env
+
+# Databases
+*.db
+*.sqlite
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS / Editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
