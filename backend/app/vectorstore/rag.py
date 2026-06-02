@@ -32,7 +32,10 @@ async def ask_rag_stream(query: str):
     # 2. Fetch relevant tool documents from ChromaDB
     try:
         store = get_chroma_store(collection_name="ai_navigator")
-        docs = store.similarity_search(query, k=4)
+        if store:
+            docs = store.similarity_search(query, k=4)
+        else:
+            docs = []
     except Exception as e:
         print(f"ChromaDB retrieval error: {e}")
         docs = []
