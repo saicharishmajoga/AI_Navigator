@@ -7,7 +7,14 @@ from .config import settings
 def register_middleware(app):
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_origins=[
+            "http://localhost:8080",
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:8000",
+            "https://ai-navigator-1-h3xy.onrender.com",
+        ],
+        allow_origin_regex="https://.*\\.onrender\\.com|http://localhost:\\d+|http://127\\.0.0\\.1:\\d+",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
