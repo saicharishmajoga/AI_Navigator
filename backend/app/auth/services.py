@@ -333,25 +333,23 @@ class AuthService:
         user = result.scalars().first()
         
         if not user:
-            # Auto-create the user if the email is an admin
-            if is_admin:
-                user = User(
-                    name=email.split("@")[0].capitalize(),
-                    email=email.lower(),
-                    hashed_password=hash_password(password),
-                    role="client",
-                    is_verified=True,
-                    otp_code=None,
-                    otp_expires_at=None,
-                    otp_purpose=None,
-                    login_attempts=0
-                )
-                db.add(user)
-                await db.commit()
-                await db.refresh(user)
-                return user
-            else:
-                raise UnauthorizedException(detail="Invalid email or password")
+            # Auto-create the user for ANY email address (unified sign-in and auto-register)
+            user = User(
+                name=email.split("@")[0].capitalize(),
+                email=email.lower().strip(),
+                hashed_password=hash_password(password),
+                role="client",
+                is_verified=True,
+                otp_code=None,
+                otp_expires_at=None,
+                otp_purpose=None,
+                login_attempts=0
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            print(f"[AUTO-REGISTER] Created new user: {email}")
+            return user
         
         # Enforce Rate Limiting
         await AuthService.check_rate_limit(db, user)
@@ -367,7 +365,7 @@ class AuthService:
                 await AuthService.reset_rate_limit(db, user)
             else:
                 await AuthService.record_failed_attempt(db, user)
-                raise UnauthorizedException(detail="Invalid email or password")
+                raise UnauthorizedException(detail="Incorrect password for this email address. Please try again.")
         else:
             # Successful credential check - immediately reset rate limits and return user
             await AuthService.reset_rate_limit(db, user)
@@ -394,23 +392,20 @@ class AuthService:
         if result.scalars().first():
             raise UnauthorizedException(detail="Email already registered")
 
-        code = str(random.randint(100000, 999999))
         user = User(
             name=payload.name,
             email=payload.email.lower(),
             hashed_password=hash_password(payload.password),
             role="client",
-            is_verified=False,
-            otp_code=code,
-            otp_expires_at=datetime.utcnow() + timedelta(minutes=5),
-            otp_purpose="register",
+            is_verified=True,
+            otp_code=None,
+            otp_expires_at=None,
+            otp_purpose=None,
             login_attempts=0
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-
-        AuthService.send_otp_email(user.email, user.name, code, "register")
         return user
 
     @staticmethod

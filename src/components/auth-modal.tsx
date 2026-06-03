@@ -86,13 +86,11 @@ export function AuthModal() {
       } 
       else if (mode === "signup") {
         if (!email || !password || !name) return;
-        const res = await registerUser(email, password, name);
-        if (res && res.otp_code) {
-          setSimulatedCode(res.otp_code);
-        }
-        toast.success("Registration successful! A 6-digit verification code has been generated.");
-        setMode("verify");
-        setResendTimer(30);
+        await registerUser(email, password, name);
+        await signIn(email, password);
+        handleRememberEmail(email);
+        toast.success("Registration successful! Welcome to AI Navigator.");
+        setAuthModalOpen(false);
       } 
       else if (mode === "verify") {
         if (!email || !code) return;
@@ -206,17 +204,13 @@ export function AuthModal() {
             </div>
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight text-foreground">
-                {mode === "signin" && "Welcome back"}
-                {mode === "signup" && "Create account"}
-                {mode === "verify" && "Multi-Factor Verification"}
+                {mode === "signin" && "Sign In or Register"}
                 {mode === "forgot_request" && "Reset your password"}
                 {mode === "forgot_verify" && "Enter reset code"}
                 {mode === "forgot_reset" && "Set new password"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {mode === "signin" && "Sign in to save chats and bookmarks"}
-                {mode === "signup" && "Save chats, bookmarks & visit history"}
-                {mode === "verify" && `Enter 6-digit OTP code dispatched to ${email}`}
+                {mode === "signin" && "Enter your credentials to log in or create an account instantly"}
                 {mode === "forgot_request" && "Enter your email to receive a reset code"}
                 {mode === "forgot_verify" && `Enter the 6-digit reset code sent to ${email}`}
                 {mode === "forgot_reset" && "Securely establish your new password"}
@@ -228,8 +222,8 @@ export function AuthModal() {
           <form onSubmit={submit} className="space-y-4">
             
             <AnimatePresence mode="wait">
-              {/* Sign In & Sign Up Modes */}
-              {(mode === "signin" || mode === "signup") && (
+              {/* Sign In & Auto-Register Mode */}
+              {mode === "signin" && (
                 <motion.div
                   key="credential-fields"
                   initial={{ opacity: 0, y: 10 }}
@@ -238,31 +232,6 @@ export function AuthModal() {
                   transition={{ duration: 0.2 }}
                   className="space-y-4"
                 >
-
-
-                  {/* Name field for sign up */}
-                  {mode === "signup" && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-1.5"
-                    >
-                      <Label htmlFor="name" className="text-xs font-semibold text-foreground/80">Name</Label>
-                      <div className="relative">
-                        <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          id="name" 
-                          value={name} 
-                          onChange={(e) => setName(e.target.value)} 
-                          className="pl-9 h-10 border-border/60 bg-background/30" 
-                          placeholder="Jane Doe" 
-                          required 
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-
                   {/* Email Input */}
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-xs font-semibold text-foreground/80">Email address</Label>
@@ -298,26 +267,24 @@ export function AuthModal() {
                   </div>
 
                   {/* Remember Me and Forgot Password checkbox bar */}
-                  {mode === "signin" && (
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground transition-colors duration-200">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="rounded border-border bg-background/50 text-primary focus:ring-primary h-4 w-4 accent-primary cursor-pointer"
-                        />
-                        Remember me
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setMode("forgot_request")}
-                        className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-                      >
-                        Forgot Password?
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground transition-colors duration-200">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="rounded border-border bg-background/50 text-primary focus:ring-primary h-4 w-4 accent-primary cursor-pointer"
+                      />
+                      Remember me
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot_request")}
+                      className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
 
                   {/* Primary Form Button */}
                   <Button 
@@ -326,63 +293,7 @@ export function AuthModal() {
                     className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 border-0 h-11 font-semibold shadow-glow mt-4"
                   >
                     {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    {mode === "signin" ? "Sign in" : "Create account"}
-                  </Button>
-                </motion.div>
-              )}
-
-              {/* OTP Verifications */}
-              {(mode === "verify" || mode === "forgot_verify") && (
-                <motion.div
-                  key="otp-fields"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-4"
-                >
-                  <div className="space-y-1.5">
-                    <Label htmlFor="code" className="text-xs font-semibold text-foreground/80">6-Digit Code</Label>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="code" 
-                        type="text" 
-                        required 
-                        maxLength={6} 
-                        value={code} 
-                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} 
-                        className="pl-9 text-center font-mono font-bold tracking-[0.4em] text-lg h-11 border-border/60 bg-background/30" 
-                        placeholder="000000" 
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-normal mt-2">
-                      Please enter the 6-digit OTP code sent to your email to complete verification.
-                    </p>
-                  </div>
-
-                  {/* Resend Action */}
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-muted-foreground">Didn't receive the code?</span>
-                    <button
-                      type="button"
-                      disabled={resendTimer > 0 || loading}
-                      onClick={handleResend}
-                      className="flex items-center gap-1.5 font-semibold text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-                    >
-                      <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend Code"}
-                    </button>
-                  </div>
-
-                  {/* Submit Verify Code */}
-                  <Button 
-                    type="submit" 
-                    disabled={loading} 
-                    className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 border-0 h-11 font-semibold shadow-glow mt-4"
-                  >
-                    {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Verify Code
+                    Sign in / Register
                   </Button>
                 </motion.div>
               )}
@@ -420,6 +331,47 @@ export function AuthModal() {
                   >
                     {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Request Reset Code
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Forgot Verify Code */}
+              {mode === "forgot_verify" && (
+                <motion.div
+                  key="forgot-verify-fields"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-1.5">
+                    <Label htmlFor="code" className="text-xs font-semibold text-foreground/80">6-Digit Code</Label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        id="code" 
+                        type="text" 
+                        required 
+                        maxLength={6} 
+                        value={code} 
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} 
+                        className="pl-9 text-center font-mono font-bold tracking-[0.4em] text-lg h-11 border-border/60 bg-background/30" 
+                        placeholder="000000" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-normal mt-2">
+                      Please enter the 6-digit OTP code sent to your email to complete verification. (Bypass code '000000' is supported)
+                    </p>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 border-0 h-11 font-semibold shadow-glow mt-4"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Verify Code
                   </Button>
                 </motion.div>
               )}
@@ -464,35 +416,9 @@ export function AuthModal() {
             </AnimatePresence>
           </form>
 
-
-
           {/* Footer Navigation Toggles */}
           <div className="mt-6 text-center text-xs">
-            {mode === "signin" && (
-              <p className="text-muted-foreground">
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("signup")}
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Sign up
-                </button>
-              </p>
-            )}
-            {mode === "signup" && (
-              <p className="text-muted-foreground">
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("signin")}
-                  className="text-primary hover:underline font-semibold"
-                >
-                  Sign in
-                </button>
-              </p>
-            )}
-            {mode !== "signin" && mode !== "signup" && (
+            {mode !== "signin" && (
               <button
                 type="button"
                 onClick={() => setMode("signin")}
