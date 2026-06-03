@@ -113,30 +113,42 @@ class AuthService:
             server.close()
             return True
 
+        # Force IPv4 socket resolution globally during the email send execution
+        # to bypass unreachable IPv6 connections in cloud environments like Render.
+        import socket
+        original_getaddrinfo = socket.getaddrinfo
+        socket.getaddrinfo = lambda host, port, family=0, type=0, proto=0, flags=0: original_getaddrinfo(
+            host, port, socket.AF_INET, type, proto, flags
+        )
+
         email_sent_successfully = False
         error_msg = ""
 
-        # 1. Try primary SMTP configuration
         try:
-            email_sent_successfully = _try_send(smtp_host, smtp_port, smtp_user, smtp_password)
-            print(f"\n[SMTP SUCCESS] Verification code ({purpose}) sent via primary credentials to {email}\n")
-        except Exception as primary_err:
-            import traceback
-            print(f"\n[SMTP PRIMARY ERROR] Failed sending via primary settings: {primary_err}\n")
-            traceback.print_exc()
-            error_msg = str(primary_err)
-
-        # 2. Try fallback SMTP credentials if primary failed and was different
-        if not email_sent_successfully and primary_user_provided:
+            # 1. Try primary SMTP configuration
             try:
-                print("Attempting dispatch using verified fallback credentials...")
-                email_sent_successfully = _try_send("smtp.gmail.com", "587", "l85943114@gmail.com", "ivkrikdhwkztddpa")
-                print(f"\n[SMTP FALLBACK SUCCESS] Verification code ({purpose}) sent via fallback credentials to {email}\n")
-            except Exception as fallback_err:
+                email_sent_successfully = _try_send(smtp_host, smtp_port, smtp_user, smtp_password)
+                print(f"\n[SMTP SUCCESS] Verification code ({purpose}) sent via primary credentials to {email}\n")
+            except Exception as primary_err:
                 import traceback
-                print(f"\n[SMTP FALLBACK ERROR] Failed sending via fallback settings: {fallback_err}\n")
+                print(f"\n[SMTP PRIMARY ERROR] Failed sending via primary settings: {primary_err}\n")
                 traceback.print_exc()
-                error_msg = f"Primary error: {error_msg}; Fallback error: {fallback_err}"
+                error_msg = str(primary_err)
+
+            # 2. Try fallback SMTP credentials if primary failed and was different
+            if not email_sent_successfully and primary_user_provided:
+                try:
+                    print("Attempting dispatch using verified fallback credentials...")
+                    email_sent_successfully = _try_send("smtp.gmail.com", "587", "l85943114@gmail.com", "ivkrikdhwkztddpa")
+                    print(f"\n[SMTP FALLBACK SUCCESS] Verification code ({purpose}) sent via fallback credentials to {email}\n")
+                except Exception as fallback_err:
+                    import traceback
+                    print(f"\n[SMTP FALLBACK ERROR] Failed sending via fallback settings: {fallback_err}\n")
+                    traceback.print_exc()
+                    error_msg = f"Primary error: {error_msg}; Fallback error: {fallback_err}"
+        finally:
+            # Restore the original address resolution function
+            socket.getaddrinfo = original_getaddrinfo
 
         # Always output to console logs
         print("\n" + "=" * 80)
