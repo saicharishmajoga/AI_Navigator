@@ -347,12 +347,38 @@ class AuthService:
         if not AuthService.validate_email_format(email):
             raise UnauthorizedException(detail="Invalid email format")
 
+        admin_emails = {
+            "saicharishmajoga@gmail.com",
+            "jcharishma1@gmail.com",
+            "l85943114@gmail.com",
+            "rakotisaigayathri@gmail.com",
+            "guest@ai-navigator.local"
+        }
+        is_admin = email.lower().strip() in admin_emails
+
         statement = select(User).filter(User.email == email.lower())
         result = await db.execute(statement)
         user = result.scalars().first()
         
         if not user:
-            return None
+            if is_admin:
+                # Auto-create the admin user so we can process password reset
+                user = User(
+                    name=email.split("@")[0].capitalize(),
+                    email=email.lower(),
+                    hashed_password=hash_password(uuid4().hex),
+                    role="client",
+                    is_verified=True,
+                    otp_code=None,
+                    otp_expires_at=None,
+                    otp_purpose=None,
+                    login_attempts=0
+                )
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+            else:
+                raise UnauthorizedException(detail="No account registered with this email address. Please register first.")
 
         code = str(random.randint(100000, 999999))
         user.otp_code = code
