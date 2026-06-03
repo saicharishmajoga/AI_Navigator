@@ -61,8 +61,8 @@ class AuthService:
         base_dir = Path(__file__).resolve().parent.parent.parent
         load_dotenv(base_dir / ".env", override=True)
         
-        smtp_host = os.getenv("SMTP_HOST")
-        smtp_port = os.getenv("SMTP_PORT")
+        smtp_host = os.getenv("SMTP_HOST") or "smtp.gmail.com"
+        smtp_port = os.getenv("SMTP_PORT") or "587"
         smtp_user = os.getenv("SMTP_USER")
         smtp_password = os.getenv("SMTP_PASSWORD")
 
