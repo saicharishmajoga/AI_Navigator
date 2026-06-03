@@ -113,42 +113,110 @@ class AuthService:
             server.close()
             return True
 
-        # Force IPv4 socket resolution globally during the email send execution
-        # to bypass unreachable IPv6 connections in cloud environments like Render.
-        import socket
-        original_getaddrinfo = socket.getaddrinfo
-        socket.getaddrinfo = lambda host, port, family=0, type=0, proto=0, flags=0: original_getaddrinfo(
-            host, port, socket.AF_INET, type, proto, flags
-        )
+        # Check for HTTP-based Email APIs first to bypass Render SMTP port blocks
+        resend_api_key = os.getenv("RESEND_API_KEY")
+        brevo_api_key = os.getenv("BREVO_API_KEY")
 
         email_sent_successfully = False
         error_msg = ""
 
-        try:
-            # 1. Try primary SMTP configuration
+        # 1. Try Resend HTTP API (Port 443)
+        if resend_api_key and resend_api_key.strip():
             try:
-                email_sent_successfully = _try_send(smtp_host, smtp_port, smtp_user, smtp_password)
-                print(f"\n[SMTP SUCCESS] Verification code ({purpose}) sent via primary credentials to {email}\n")
-            except Exception as primary_err:
-                import traceback
-                print(f"\n[SMTP PRIMARY ERROR] Failed sending via primary settings: {primary_err}\n")
-                traceback.print_exc()
-                error_msg = str(primary_err)
+                import json
+                import urllib.request
+                print("Attempting email dispatch via Resend API (HTTPS)...")
+                url = "https://api.resend.com/emails"
+                headers = {
+                    "Authorization": f"Bearer {resend_api_key.strip()}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "from": "onboarding@resend.dev",
+                    "to": email,
+                    "subject": subject,
+                    "text": body
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    if response.status in (200, 201):
+                        email_sent_successfully = True
+                        print(f"[RESEND SUCCESS] Verification email sent to {email}")
+            except Exception as re_err:
+                print(f"[RESEND ERROR] Failed to send via Resend API: {re_err}")
+                error_msg = f"Resend API error: {re_err}"
 
-            # 2. Try fallback SMTP credentials if primary failed and was different
-            if not email_sent_successfully and primary_user_provided:
+        # 2. Try Brevo HTTP API (Port 443)
+        if not email_sent_successfully and brevo_api_key and brevo_api_key.strip():
+            try:
+                import json
+                import urllib.request
+                print("Attempting email dispatch via Brevo API (HTTPS)...")
+                url = "https://api.brevo.com/v3/smtp/email"
+                headers = {
+                    "api-key": brevo_api_key.strip(),
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "sender": {"name": "AI Navigator", "email": "l85943114@gmail.com"},
+                    "to": [{"email": email, "name": name}],
+                    "subject": subject,
+                    "textContent": body
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    if response.status in (200, 201):
+                        email_sent_successfully = True
+                        print(f"[BREVO SUCCESS] Verification email sent to {email}")
+            except Exception as br_err:
+                print(f"[BREVO ERROR] Failed to send via Brevo API: {br_err}")
+                error_msg = f"{error_msg}; Brevo API error: {br_err}" if error_msg else f"Brevo API error: {br_err}"
+
+        # 3. If HTTP APIs didn't succeed, fallback to standard SMTP
+        if not email_sent_successfully:
+            # Force IPv4 socket resolution globally during the email send execution
+            # to bypass unreachable IPv6 connections in cloud environments like Render.
+            import socket
+            original_getaddrinfo = socket.getaddrinfo
+            socket.getaddrinfo = lambda host, port, family=0, type=0, proto=0, flags=0: original_getaddrinfo(
+                host, port, socket.AF_INET, type, proto, flags
+            )
+
+            try:
+                # 1. Try primary SMTP configuration
                 try:
-                    print("Attempting dispatch using verified fallback credentials...")
-                    email_sent_successfully = _try_send("smtp.gmail.com", "587", "l85943114@gmail.com", "ivkrikdhwkztddpa")
-                    print(f"\n[SMTP FALLBACK SUCCESS] Verification code ({purpose}) sent via fallback credentials to {email}\n")
-                except Exception as fallback_err:
+                    email_sent_successfully = _try_send(smtp_host, smtp_port, smtp_user, smtp_password)
+                    print(f"\n[SMTP SUCCESS] Verification code ({purpose}) sent via primary credentials to {email}\n")
+                except Exception as primary_err:
                     import traceback
-                    print(f"\n[SMTP FALLBACK ERROR] Failed sending via fallback settings: {fallback_err}\n")
+                    print(f"\n[SMTP PRIMARY ERROR] Failed sending via primary settings: {primary_err}\n")
                     traceback.print_exc()
-                    error_msg = f"Primary error: {error_msg}; Fallback error: {fallback_err}"
-        finally:
-            # Restore the original address resolution function
-            socket.getaddrinfo = original_getaddrinfo
+                    error_msg = f"{error_msg}; SMTP primary error: {primary_err}" if error_msg else str(primary_err)
+
+                # 2. Try fallback SMTP credentials if primary failed and was different
+                if not email_sent_successfully and primary_user_provided:
+                    try:
+                        print("Attempting dispatch using verified fallback credentials...")
+                        email_sent_successfully = _try_send("smtp.gmail.com", "587", "l85943114@gmail.com", "ivkrikdhwkztddpa")
+                        print(f"\n[SMTP FALLBACK SUCCESS] Verification code ({purpose}) sent via fallback credentials to {email}\n")
+                    except Exception as fallback_err:
+                        import traceback
+                        print(f"\n[SMTP FALLBACK ERROR] Failed sending via fallback settings: {fallback_err}\n")
+                        traceback.print_exc()
+                        error_msg = f"{error_msg}; SMTP fallback error: {fallback_err}" if error_msg else str(fallback_err)
+            finally:
+                # Restore the original address resolution function
+                socket.getaddrinfo = original_getaddrinfo
 
         # Always output to console logs
         print("\n" + "=" * 80)
