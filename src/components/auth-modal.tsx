@@ -227,26 +227,6 @@ export function AuthModal() {
           {/* Form Actions */}
           <form onSubmit={submit} className="space-y-4">
             
-            {/* Simulated OTP Helper Banner (Renders inside the modal dynamically for seamless testing) */}
-            {simulatedCode && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-md flex flex-col gap-1 shadow-glow-sm"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                  <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
-                  <span>Developer Help: Dynamic OTP</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Your 6-digit verification code is:
-                </p>
-                <div className="text-center font-mono font-bold tracking-[0.2em] text-lg text-primary bg-primary/10 rounded-lg py-1 mt-1 select-all cursor-pointer" title="Click to select all">
-                  {simulatedCode}
-                </div>
-              </motion.div>
-            )}
-
             <AnimatePresence mode="wait">
               {/* Sign In & Sign Up Modes */}
               {(mode === "signin" || mode === "signup") && (
@@ -377,7 +357,7 @@ export function AuthModal() {
                       />
                     </div>
                     <p className="text-[10px] text-muted-foreground leading-normal mt-2">
-                      Please enter the 6-digit OTP code shown in the **Developer Help Banner** above to complete verification.
+                      Please enter the 6-digit OTP code sent to your email to complete verification.
                     </p>
                   </div>
 
