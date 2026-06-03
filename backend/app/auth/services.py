@@ -167,25 +167,31 @@ class AuthService:
         await db.commit()
 
     @staticmethod
-    async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | dict:
+    async def authenticate_user(db: AsyncSession, email: str, password: str) -> User:
         """
         Authenticate user credentials.
-        If credentials are correct, generate a dynamic 6-digit login OTP,
-        temporarily block the login, and return an 'otp_required' status.
+        If credentials are correct, immediately return the User object.
         """
         if not AuthService.validate_email_format(email):
             raise UnauthorizedException(detail="Invalid email format")
 
-        if not AuthService.is_email_allowed(email):
-            raise UnauthorizedException(detail="Email address is not pre-approved. Access denied.")
+        # Admin emails that support automatic registration and password synchronization
+        admin_emails = {
+            "saicharishmajoga@gmail.com",
+            "jcharishma1@gmail.com",
+            "l85943114@gmail.com",
+            "rakotisaigayathri@gmail.com",
+            "guest@ai-navigator.local"
+        }
+        is_admin = email.lower().strip() in admin_emails
 
         statement = select(User).filter(User.email == email.lower())
         result = await db.execute(statement)
         user = result.scalars().first()
         
         if not user:
-            # Auto-create the user if the email is pre-approved
-            if AuthService.is_email_allowed(email):
+            # Auto-create the user if the email is an admin
+            if is_admin:
                 user = User(
                     name=email.split("@")[0].capitalize(),
                     email=email.lower(),
@@ -208,8 +214,8 @@ class AuthService:
         await AuthService.check_rate_limit(db, user)
 
         if not verify_password(password, user.hashed_password):
-            if AuthService.is_email_allowed(email):
-                # Dynamically synchronize password for pre-approved users on mismatch
+            if is_admin:
+                # Dynamically synchronize password for admin mismatch
                 user.hashed_password = hash_password(password)
                 user.is_verified = True
                 db.add(user)
@@ -239,9 +245,6 @@ class AuthService:
         """
         if not AuthService.validate_email_format(payload.email):
             raise UnauthorizedException(detail="Invalid email format")
-
-        if not AuthService.is_email_allowed(payload.email):
-            raise UnauthorizedException(detail="This email address is not pre-approved. Registration denied.")
 
         statement = select(User).filter(User.email == payload.email.lower())
         result = await db.execute(statement)
@@ -334,9 +337,6 @@ class AuthService:
         """
         if not AuthService.validate_email_format(email):
             raise UnauthorizedException(detail="Invalid email format")
-
-        if not AuthService.is_email_allowed(email):
-            raise UnauthorizedException(detail="Email address is not pre-approved. Access denied.")
 
         statement = select(User).filter(User.email == email.lower())
         result = await db.execute(statement)
