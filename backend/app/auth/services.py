@@ -55,8 +55,9 @@ class AuthService:
     def send_otp_email(email: str, name: str, code: str, purpose: str) -> bool:
         """
         Helper method to dispatch the 6-digit OTP code.
-        If SMTP is dynamically configured in `.env` or system variables, it will send a real email.
-        Otherwise, it falls back to the tested GMail SMTP configuration.
+        Tries to use primary environment variables first, and automatically
+        falls back to verified GMail SMTP credentials on any failure.
+        Raises an exception if the dispatch fails entirely.
         """
         base_dir = Path(__file__).resolve().parent.parent.parent
         load_dotenv(base_dir / ".env", override=True)
@@ -65,12 +66,15 @@ class AuthService:
         smtp_port = os.getenv("SMTP_PORT") or "587"
         
         smtp_user = os.getenv("SMTP_USER")
+        primary_user_provided = True
         if not smtp_user or "YOUR_GMAIL" in smtp_user or smtp_user.strip() == "":
             smtp_user = "l85943114@gmail.com"
+            primary_user_provided = False
             
         smtp_password = os.getenv("SMTP_PASSWORD")
         if not smtp_password or "YOUR_GMAIL" in smtp_password or smtp_password.strip() == "":
             smtp_password = "ivkrikdhwkztddpa"
+            primary_user_provided = False
 
         purpose_titles = {
             "register": "Verify your email",
@@ -88,33 +92,51 @@ class AuthService:
             f"The AI Navigator Team"
         )
 
-        email_sent_successfully = False
-        if smtp_host and smtp_port and smtp_user and smtp_password and "YOUR_GMAIL" not in smtp_user:
-            try:
-                msg = MIMEText(body)
-                msg["Subject"] = subject
-                msg["From"] = smtp_user
-                msg["To"] = email
+        def _try_send(host: str, port: str, user: str, pwd: str) -> bool:
+            msg = MIMEText(body)
+            msg["Subject"] = subject
+            msg["From"] = user
+            msg["To"] = email
+            
+            p = int(port)
+            if p == 465:
+                server = smtplib.SMTP_SSL(host, p, timeout=10)
+                server.ehlo()
+            else:
+                server = smtplib.SMTP(host, p, timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+            
+            server.login(user, pwd)
+            server.sendmail(user, email, msg.as_string())
+            server.close()
+            return True
 
-                port = int(smtp_port)
-                if port == 465:
-                    server = smtplib.SMTP_SSL(smtp_host, port, timeout=10)
-                    server.ehlo()
-                else:
-                    server = smtplib.SMTP(smtp_host, port, timeout=10)
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, email, msg.as_string())
-                server.close()
-                print(f"\n[SMTP SUCCESS] Verification code ({purpose}) real email successfully dispatched to {email}\n")
-                email_sent_successfully = True
-            except Exception as se:
+        email_sent_successfully = False
+        error_msg = ""
+
+        # 1. Try primary SMTP configuration
+        try:
+            email_sent_successfully = _try_send(smtp_host, smtp_port, smtp_user, smtp_password)
+            print(f"\n[SMTP SUCCESS] Verification code ({purpose}) sent via primary credentials to {email}\n")
+        except Exception as primary_err:
+            import traceback
+            print(f"\n[SMTP PRIMARY ERROR] Failed sending via primary settings: {primary_err}\n")
+            traceback.print_exc()
+            error_msg = str(primary_err)
+
+        # 2. Try fallback SMTP credentials if primary failed and was different
+        if not email_sent_successfully and primary_user_provided:
+            try:
+                print("Attempting dispatch using verified fallback credentials...")
+                email_sent_successfully = _try_send("smtp.gmail.com", "587", "l85943114@gmail.com", "ivkrikdhwkztddpa")
+                print(f"\n[SMTP FALLBACK SUCCESS] Verification code ({purpose}) sent via fallback credentials to {email}\n")
+            except Exception as fallback_err:
                 import traceback
-                print(f"\n[SMTP ERROR] Real email dispatch failed: {se}. Falling back to terminal logs.\n")
+                print(f"\n[SMTP FALLBACK ERROR] Failed sending via fallback settings: {fallback_err}\n")
                 traceback.print_exc()
+                error_msg = f"Primary error: {error_msg}; Fallback error: {fallback_err}"
 
         # Always output to console logs
         print("\n" + "=" * 80)
@@ -123,10 +145,16 @@ class AuthService:
         if email_sent_successfully:
             print("  Status: REAL EMAIL DISPATCHED SUCCESSFULLY VIA SMTP.")
         else:
-            print("  Status: SIMULATED LOG DISPATCH (SMTP NOT ACTIVE / NO SMTP IN .env).")
+            print("  Status: SIMULATED LOG DISPATCH (SMTP FAILED).")
         print(f"  >>> YOUR 6-DIGIT VERIFICATION CODE IS: {code} <<<")
         print("=" * 80 + "\n")
-        return email_sent_successfully
+
+        if not email_sent_successfully:
+            raise UnauthorizedException(
+                detail=f"Failed to deliver verification email. Error: {error_msg}. Please check your email or try again."
+            )
+
+        return True
 
 
     @staticmethod
