@@ -149,8 +149,12 @@ class AuthService:
                         email_sent_successfully = True
                         print(f"[RESEND SUCCESS] Verification email sent to {email}")
             except Exception as re_err:
-                print(f"[RESEND ERROR] Failed to send via Resend API: {re_err}")
-                error_msg = f"Resend API error: {re_err}"
+                import urllib.error
+                err_detail = str(re_err)
+                if isinstance(re_err, urllib.error.HTTPError) and re_err.code == 403:
+                    err_detail = "403 Forbidden (Resend Sandbox only allows sending to your own Resend login email. To send to any email address, verify your domain on Resend, or add BREVO_API_KEY to Render instead)"
+                print(f"[RESEND ERROR] Failed to send via Resend API: {err_detail}")
+                error_msg = f"Resend API error: {err_detail}"
 
         # 2. Try Brevo HTTP API (Port 443)
         if not email_sent_successfully and brevo_api_key and brevo_api_key.strip():
