@@ -129,7 +129,8 @@ class AuthService:
                 url = "https://api.resend.com/emails"
                 headers = {
                     "Authorization": f"Bearer {resend_api_key.strip()}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
                 payload = {
                     "from": "onboarding@resend.dev",
@@ -160,7 +161,8 @@ class AuthService:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {
                     "api-key": brevo_api_key.strip(),
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
                 payload = {
                     "sender": {"name": "AI Navigator", "email": "l85943114@gmail.com"},
