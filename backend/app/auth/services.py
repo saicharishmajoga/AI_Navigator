@@ -198,14 +198,13 @@ class AuthService:
             except Exception as br_err:
                 import urllib.error
                 err_detail = str(br_err)
-                if isinstance(br_err, urllib.error.HTTPError) and br_err.code == 403:
+                if isinstance(br_err, urllib.error.HTTPError):
                     try:
                         resp_body = br_err.read().decode("utf-8")
-                        print(f"[BREVO ERROR BODY] {resp_body}")
-                        err_detail = f"403 Forbidden - {resp_body}"
+                        print(f"[BREVO ERROR RESPONSE] {resp_body}")
+                        err_detail = f"HTTP {br_err.code} - {resp_body}"
                     except Exception:
-                        pass
-                    err_detail = f"403 Forbidden (Brevo Sender Verification Error: The sender email '{brevo_sender}' is not verified in your Brevo account. Please add BREVO_SENDER_EMAIL to Render with a verified sender email, or verify '{brevo_sender}' in your Brevo dashboard)"
+                        err_detail = f"HTTP {br_err.code} - {br_err.reason}"
                 print(f"[BREVO ERROR] Failed to send via Brevo API: {err_detail}")
                 error_msg = f"{error_msg}; Brevo API error: {err_detail}" if error_msg else f"Brevo API error: {err_detail}"
 
