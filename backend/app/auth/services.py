@@ -55,16 +55,22 @@ class AuthService:
     def send_otp_email(email: str, name: str, code: str, purpose: str) -> bool:
         """
         Helper method to dispatch the 6-digit OTP code.
-        If SMTP is dynamically configured in `.env`, it will send a real email.
-        Otherwise, it logs to the server terminal.
+        If SMTP is dynamically configured in `.env` or system variables, it will send a real email.
+        Otherwise, it falls back to the tested GMail SMTP configuration.
         """
         base_dir = Path(__file__).resolve().parent.parent.parent
         load_dotenv(base_dir / ".env", override=True)
         
         smtp_host = os.getenv("SMTP_HOST") or "smtp.gmail.com"
         smtp_port = os.getenv("SMTP_PORT") or "587"
+        
         smtp_user = os.getenv("SMTP_USER")
+        if not smtp_user or "YOUR_GMAIL" in smtp_user or smtp_user.strip() == "":
+            smtp_user = "l85943114@gmail.com"
+            
         smtp_password = os.getenv("SMTP_PASSWORD")
+        if not smtp_password or "YOUR_GMAIL" in smtp_password or smtp_password.strip() == "":
+            smtp_password = "ivkrikdhwkztddpa"
 
         purpose_titles = {
             "register": "Verify your email",
@@ -106,7 +112,9 @@ class AuthService:
                 print(f"\n[SMTP SUCCESS] Verification code ({purpose}) real email successfully dispatched to {email}\n")
                 email_sent_successfully = True
             except Exception as se:
+                import traceback
                 print(f"\n[SMTP ERROR] Real email dispatch failed: {se}. Falling back to terminal logs.\n")
+                traceback.print_exc()
 
         # Always output to console logs
         print("\n" + "=" * 80)
@@ -119,6 +127,7 @@ class AuthService:
         print(f"  >>> YOUR 6-DIGIT VERIFICATION CODE IS: {code} <<<")
         print("=" * 80 + "\n")
         return email_sent_successfully
+
 
     @staticmethod
     async def check_rate_limit(db: AsyncSession, user: User):
