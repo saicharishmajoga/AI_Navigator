@@ -158,10 +158,21 @@ class AuthService:
 
         # 2. Try Brevo HTTP API (Port 443)
         if not email_sent_successfully and brevo_api_key and brevo_api_key.strip():
+            # Determine Brevo sender email dynamically
+            brevo_sender = os.getenv("BREVO_SENDER_EMAIL")
+            if not brevo_sender or brevo_sender.strip() == "":
+                smtp_user_val = os.getenv("SMTP_USER")
+                if smtp_user_val and smtp_user_val.strip() and "l85943114@gmail.com" not in smtp_user_val and "YOUR_GMAIL" not in smtp_user_val:
+                    brevo_sender = smtp_user_val.strip()
+                else:
+                    brevo_sender = "saicharishmajoga@gmail.com"
+            else:
+                brevo_sender = brevo_sender.strip()
+
             try:
                 import json
                 import urllib.request
-                print("Attempting email dispatch via Brevo API (HTTPS)...")
+                print(f"Attempting email dispatch via Brevo API (HTTPS) with sender '{brevo_sender}'...")
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {
                     "api-key": brevo_api_key.strip(),
@@ -169,7 +180,7 @@ class AuthService:
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
                 payload = {
-                    "sender": {"name": "AI Navigator", "email": "l85943114@gmail.com"},
+                    "sender": {"name": "AI Navigator", "email": brevo_sender},
                     "to": [{"email": email, "name": name}],
                     "subject": subject,
                     "textContent": body
@@ -185,8 +196,18 @@ class AuthService:
                         email_sent_successfully = True
                         print(f"[BREVO SUCCESS] Verification email sent to {email}")
             except Exception as br_err:
-                print(f"[BREVO ERROR] Failed to send via Brevo API: {br_err}")
-                error_msg = f"{error_msg}; Brevo API error: {br_err}" if error_msg else f"Brevo API error: {br_err}"
+                import urllib.error
+                err_detail = str(br_err)
+                if isinstance(br_err, urllib.error.HTTPError) and br_err.code == 403:
+                    try:
+                        resp_body = br_err.read().decode("utf-8")
+                        print(f"[BREVO ERROR BODY] {resp_body}")
+                        err_detail = f"403 Forbidden - {resp_body}"
+                    except Exception:
+                        pass
+                    err_detail = f"403 Forbidden (Brevo Sender Verification Error: The sender email '{brevo_sender}' is not verified in your Brevo account. Please add BREVO_SENDER_EMAIL to Render with a verified sender email, or verify '{brevo_sender}' in your Brevo dashboard)"
+                print(f"[BREVO ERROR] Failed to send via Brevo API: {err_detail}")
+                error_msg = f"{error_msg}; Brevo API error: {err_detail}" if error_msg else f"Brevo API error: {err_detail}"
 
         # 3. If HTTP APIs didn't succeed, fallback to standard SMTP
         if not email_sent_successfully:
