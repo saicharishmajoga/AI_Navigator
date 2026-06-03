@@ -81,8 +81,8 @@ export async function forgotPassword(email: string): Promise<{ success: boolean;
   });
 }
 
-export async function verifyResetOTP(email: string, code: string): Promise<{ success: boolean; message: string }> {
-  return fetchAuth<{ success: boolean; message: string }>("/auth/verify-reset-otp", {
+export async function verifyResetOTP(email: string, code: string): Promise<AuthTokenResponse> {
+  return fetchAuth<AuthTokenResponse>("/auth/verify-reset-otp", {
     method: "POST",
     body: JSON.stringify({ email, code }),
   });

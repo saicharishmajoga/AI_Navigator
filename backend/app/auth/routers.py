@@ -96,13 +96,13 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
     }
 
 
-@router.post("/verify-reset-otp")
+@router.post("/verify-reset-otp", response_model=Token)
 async def verify_reset_otp(payload: VerifyResetOtpRequest, db: AsyncSession = Depends(get_db)):
     """
-    Validates the 6-digit password reset OTP.
+    Validates the 6-digit password reset OTP and logs the user in.
     """
-    await AuthService.verify_reset_otp(db, payload.email, payload.code)
-    return {"success": True, "message": "Verification code validated successfully"}
+    user = await AuthService.verify_reset_otp(db, payload.email, payload.code)
+    return {"access_token": AuthService.create_token(user), "token_type": "bearer"}
 
 
 @router.post("/reset-password")

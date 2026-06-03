@@ -114,8 +114,8 @@ export function AuthModal() {
       else if (mode === "forgot_verify") {
         if (!email || !code) return;
         await verifyResetCode(email, code);
-        toast.success("Reset code verified successfully! You can now set a new password.");
-        setMode("forgot_reset");
+        toast.success("Verification successful! Welcome back.");
+        setAuthModalOpen(false);
       } 
       else if (mode === "forgot_reset") {
         if (!email || !code || !password) return;

@@ -146,7 +146,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
 
       verifyResetCode: async (email, code) => {
-        await authApi.verifyResetOTP(email, code);
+        const tokenResponse = await authApi.verifyResetOTP(email, code);
+        const account = await authApi.fetchMe(tokenResponse.access_token);
+        setAuthToken(tokenResponse.access_token);
+        setUser(account);
       },
 
       resetNewPassword: async (email, code, password) => {

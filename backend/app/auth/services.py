@@ -419,9 +419,9 @@ class AuthService:
         return code
 
     @staticmethod
-    async def verify_reset_otp(db: AsyncSession, email: str, code: str) -> bool:
+    async def verify_reset_otp(db: AsyncSession, email: str, code: str) -> User:
         """
-        Verify the reset OTP matches and is not expired.
+        Verify the reset OTP matches, is not expired, marks verified, clears OTP, and returns the User.
         """
         statement = select(User).filter(User.email == email.lower())
         result = await db.execute(statement)
@@ -440,8 +440,17 @@ class AuthService:
             await AuthService.record_failed_attempt(db, user)
             raise UnauthorizedException(detail="Invalid or expired verification code")
 
+        # Success - mark verified, clear OTP
+        user.is_verified = True
+        user.otp_code = None
+        user.otp_expires_at = None
+        user.otp_purpose = None
         await AuthService.reset_rate_limit(db, user)
-        return True
+        
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
 
     @staticmethod
     async def reset_password_commit(db: AsyncSession, email: str, code: str, new_password: str) -> bool:
